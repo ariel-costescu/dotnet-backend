@@ -1,2 +1,2 @@
-# superplay-test
-Take home test in .Net
+# dotnet-backend
+Simple websocket backend built with standard dotnet libraries.
