@@ -1,31 +1,32 @@
-using System.Net.Sockets;
+using System.Net.WebSockets;
 
 public class MessageRouter : IMessageRouter
 {
-    private readonly Dictionary<string, Func<string, NetworkStream, Task>> _handlers;
+    private readonly Dictionary<string, Func<string, WebSocket, Task>> _handlers;
 
     public MessageRouter()
     {
-        _handlers = new Dictionary<string, Func<string, NetworkStream, Task>>();
+        _handlers = new Dictionary<string, Func<string, WebSocket, Task>>();
     }
 
-    public void RegisterHandler(string messageType, Func<string, NetworkStream, Task> handler)
+    public void RegisterHandler(string messageType, Func<string, WebSocket, Task> handler)
     {
         _handlers.Add(messageType, handler);
     }
 
-    public async Task RouteMessage(string message, NetworkStream stream)
+    public async Task RouteMessage(string message, WebSocket webSocket)
     {
         // Extract message type from the message format
         var messageType = GetMessageType(message);
 
         if (_handlers.TryGetValue(messageType, out var handler))
         {
-            await handler(message, stream);
+            await handler(message, webSocket);
         }
         else
         {
             Console.WriteLine($"Unhandled message type: {messageType}");
+            Console.WriteLine($"Message was : \"{message}\"");
         }
     }
 
@@ -38,6 +39,6 @@ public class MessageRouter : IMessageRouter
 
 public interface IMessageRouter
 {
-    void RegisterHandler(string messageType, Func<string, NetworkStream, Task> handler);
-    Task RouteMessage(string message, NetworkStream stream);
+    void RegisterHandler(string messageType, Func<string, WebSocket, Task> handler);
+    Task RouteMessage(string message, WebSocket webSocket);
 }
