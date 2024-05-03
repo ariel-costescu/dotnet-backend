@@ -1,44 +1,53 @@
+namespace BackendServer;
+
 using System.Net.WebSockets;
+using System.Text.Json;
 
 public class MessageRouter : IMessageRouter
 {
-    private readonly Dictionary<string, Func<string, WebSocket, Task>> _handlers;
+    private readonly Dictionary<string, Func<object?, WebSocket, Task>> _handlers;
 
     public MessageRouter()
     {
-        _handlers = new Dictionary<string, Func<string, WebSocket, Task>>();
+        _handlers = [];
     }
 
-    public void RegisterHandler(string messageType, Func<string, WebSocket, Task> handler)
+    public void RegisterHandler(string messageType, Func<object?, WebSocket, Task> handler)
     {
         _handlers.Add(messageType, handler);
     }
 
     public async Task RouteMessage(string message, WebSocket webSocket)
     {
-        // Extract message type from the message format
-        var messageType = GetMessageType(message);
-
-        if (_handlers.TryGetValue(messageType, out var handler))
+        Message? jsonMessage = null;
+        try
         {
-            await handler(message, webSocket);
+            jsonMessage = JsonSerializer.Deserialize<Message>(message);
         }
-        else
+        catch(Exception ex)
         {
-            Console.WriteLine($"Unhandled message type: {messageType}");
-            Console.WriteLine($"Message was : \"{message}\"");
+            Console.WriteLine($"Unable to parse json message due to exception: {ex.Message}");
         }
-    }
 
-    private string GetMessageType(string message)
-    {
-        // Implement logic to extract the message type from your message format
-        return "default"; // Replace with actual logic
+        if (jsonMessage != null)
+        {
+            var messageType = jsonMessage.Type ?? "default";
+
+            if (_handlers.TryGetValue(messageType, out var handler))
+            {
+                await handler(jsonMessage.Payload, webSocket);
+            }
+            else
+            {
+                Console.WriteLine($"Unhandled message type: {messageType}");
+                Console.WriteLine($"Message was : \"{message}\"");
+            }
+        }
     }
 }
 
 public interface IMessageRouter
 {
-    void RegisterHandler(string messageType, Func<string, WebSocket, Task> handler);
+    void RegisterHandler(string messageType, Func<object?, WebSocket, Task> handler);
     Task RouteMessage(string message, WebSocket webSocket);
 }

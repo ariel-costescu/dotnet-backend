@@ -1,13 +1,11 @@
+namespace BackendServer;
+
 using System.Net;
 using System.Net.WebSockets;
-using System.Text;
-
 public class Server
 {
     private const string ServerAddressDefault = "127.0.0.1";
     private const int ServerPortDefault = 8080;
-    private const string SubProtocol = "websocket";
-    private const int ReceiveBufferSize = 1024;
     private static readonly IMessageRouter _messageRouter = new MessageRouter();
 
     public static async Task Main(string[] args)
@@ -25,6 +23,9 @@ public class Server
         {
             var webSocketContext = await context.AcceptWebSocketAsync(null);
             var webSocket = webSocketContext.WebSocket;
+
+            RegisterHandlers();
+
             while (webSocket.State != WebSocketState.CloseReceived)
             {
                 await HandleWebSocketRequest(webSocket);
@@ -38,48 +39,21 @@ public class Server
         }
     }
 
+    private static void RegisterHandlers()
+    {
+        _messageRouter.RegisterHandler("Login", LoginHandler.HandleLogin);
+        _messageRouter.RegisterHandler("UpdateResources", UpdateResourcesHandler.HandleUpdateResources);
+        _messageRouter.RegisterHandler("SendGift", SendGiftHandler.HandleSendGift);
+    }
+
     private static async Task HandleWebSocketRequest(WebSocket webSocket)
     {
-        var message = await ReceiveMessage(webSocket);
+        var message = await MessageHelper.ReceiveMessage(webSocket);
         if (message != null)
         {
             await _messageRouter.RouteMessage(message, webSocket);
         }
     }
 
-    private static async Task<string?> ReceiveMessage(WebSocket webSocket)
-    {
-        var message = new StringBuilder();
-
-        while (true)
-        {
-            var buffer = WebSocket.CreateServerBuffer(ReceiveBufferSize);
-            var receiveResult = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
-
-            if (!receiveResult.CloseStatus.HasValue)
-            {
-                int termination = Array.IndexOf([.. buffer], (byte)0);
-                if (termination == -1)
-                {
-                    message.Append(Encoding.UTF8.GetString([.. buffer], 0, buffer.Count));
-                }
-                else
-                {
-                    message.Append(Encoding.UTF8.GetString([.. buffer], 0, termination));
-                }
-
-                if (receiveResult.EndOfMessage)
-                {
-                    break;
-                }
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-
-        return message.ToString();
-    }
+    
 }
