@@ -1,7 +1,5 @@
-﻿using System.Net;
-using System.Net.WebSockets;
+﻿using System.Net.WebSockets;
 using System.Text;
-using System.Threading.Tasks;
 
 public class Client
 {
@@ -20,8 +18,6 @@ public class Client
 
         Console.WriteLine("Connected to server!");
 
-        var buffer = WebSocket.CreateClientBuffer(ReceiveBufferSize, SendBufferSize);
-
         while (webSocket.State == WebSocketState.Open)
         {
             var message = Console.ReadLine();
@@ -31,24 +27,45 @@ public class Client
             }
             else
             {
-                await SendMessage(webSocket, buffer, message);
+                await SendMessage(webSocket, message);
             }
         }
     }
 
-    private static async Task SendMessage(ClientWebSocket webSocket, ArraySegment<byte> buffer, string message)
+    private static async Task SendMessage(ClientWebSocket webSocket, string message)
     {
         var messageBytes = Encoding.UTF8.GetBytes(message);
         int messageLength = messageBytes.Length;
-        int offset = 0;
-        int count = SendBufferSize;
-        while (offset < messageLength)
+
+        if (messageLength <= SendBufferSize)
         {
-            bool endOfMessage = offset + count < messageBytes.Length;
-            count = Math.Min(count, messageLength - offset);
-            new ArraySegment<byte>(messageBytes, offset, count).CopyTo(buffer);
-            await webSocket.SendAsync(buffer, WebSocketMessageType.Text, endOfMessage, CancellationToken.None);
-            offset += count;
+            var buffer = new ArraySegment<byte>(messageBytes, 0, messageLength);
+            await webSocket.SendAsync(buffer, WebSocketMessageType.Text, true, CancellationToken.None);
+
         }
+        else
+        {
+            int offset = 0;
+            int count = SendBufferSize;
+            bool endOfMessage = offset + count >= messageLength;
+            while (!endOfMessage)
+            {
+                count = await SendPartialMessage(webSocket, messageBytes, messageLength, offset, count, endOfMessage); offset += count;
+                endOfMessage = offset + count >= messageLength;
+            }
+            if (offset < messageLength)
+            {
+                count = await SendPartialMessage(webSocket, messageBytes, messageLength, offset, count, endOfMessage); offset += count;
+            }
+        }
+    }
+
+    private static async Task<int> SendPartialMessage(ClientWebSocket webSocket, byte[] messageBytes,
+                int messageLength, int offset, int count, bool endOfMessage)
+    {
+        count = Math.Min(count, messageLength - offset);
+        var buffer = new ArraySegment<byte>(messageBytes, offset, count);
+        await webSocket.SendAsync(buffer, WebSocketMessageType.Text, endOfMessage, CancellationToken.None);
+        return count;
     }
 }

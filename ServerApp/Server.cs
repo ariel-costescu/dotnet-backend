@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
-using System.Threading.Tasks;
 
 public class Server
 {
@@ -47,19 +46,29 @@ public class Server
 
     private static async Task<string> ReceiveMessage(WebSocket webSocket)
     {
-        var buffer = WebSocket.CreateServerBuffer(ReceiveBufferSize);
         var message = new StringBuilder();
 
         while (true)
         {
+            var buffer = WebSocket.CreateServerBuffer(ReceiveBufferSize);
             var receiveResult = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
-            if (receiveResult.EndOfMessage)
+
+            if (!receiveResult.CloseStatus.HasValue)
             {
-                break;
-            }
-            else
-            {
-                message.Append(receiveResult.ToString());
+                int termination = Array.IndexOf([.. buffer], (byte)0);
+                if (termination == -1)
+                {
+                    message.Append(Encoding.UTF8.GetString([.. buffer], 0, buffer.Count));
+                }
+                else
+                {
+                    message.Append(Encoding.UTF8.GetString([.. buffer], 0, termination));
+                }
+
+                if (receiveResult.EndOfMessage)
+                {
+                    break;
+                }
             }
         }
 
