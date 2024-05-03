@@ -72,7 +72,14 @@ public class Client
             if (response != null)
             {
                 var loginResponse = JsonSerializer.Deserialize<LoginResponse>(response);
-                Console.WriteLine($"Login response: PlayerId={loginResponse?.PlayerId}");
+                if (loginResponse?.Error != null)
+                {
+                    Console.WriteLine($"Login error: {loginResponse.Error}");
+                }
+                else
+                {
+                    Console.WriteLine($"Login response: PlayerId={loginResponse?.PlayerId}");
+                }
             }
         }
     }

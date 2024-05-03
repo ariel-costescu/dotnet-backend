@@ -14,6 +14,7 @@ public class LoginRequest
 public class LoginResponse
 {
     public string? PlayerId { get; set; }
+    public string? Error { get; set; }
 }
 public enum ResourceTypeEnum{ Coins, Rolls }
 
