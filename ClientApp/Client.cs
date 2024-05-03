@@ -1,12 +1,13 @@
-﻿using System.Net.WebSockets;
-using System.Text;
+﻿namespace ClientApp;
+
+using System.Net.WebSockets;
+using System.Text.Json;
+using BackendServer;
 
 public class Client
 {
     private const string ServerAddressDefault = "127.0.0.1";
     private const int ServerPortDefault = 8080;
-    private const int SendBufferSize = 1024;
-    private const int ReceiveBufferSize = 1024;
 
     public static async Task Main(string[] args)
     {
@@ -27,45 +28,80 @@ public class Client
             }
             else
             {
-                await SendMessage(webSocket, message);
+                Message? jsonMessage = null;
+                try
+                {
+                    jsonMessage = JsonSerializer.Deserialize<Message>(message);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Unable to parse json message due to exception: {ex.Message}");
+                }
+
+                if (jsonMessage != null)
+                {
+                    var messageType = jsonMessage.Type ?? "default";
+
+                    switch (messageType)
+                    {
+                        case "Login":
+                            await HandleLoginAsync(webSocket, message);
+                            break;
+                        case "UpdateResources":
+                            await HandleUpdateResourcesAsync(webSocket, message);
+                            break;
+                        case "SendGift":
+                            await HandleSendGiftAsync(webSocket, message);
+                            break;
+                        default:
+                            Console.WriteLine($"Unhandled message type: {messageType}");
+                            break;
+                    }
+
+                }
             }
         }
     }
 
-    private static async Task SendMessage(ClientWebSocket webSocket, string message)
+    private static async Task HandleLoginAsync(ClientWebSocket webSocket, string message)
     {
-        var messageBytes = Encoding.UTF8.GetBytes(message);
-        int messageLength = messageBytes.Length;
-
-        if (messageLength <= SendBufferSize)
+        await MessageHelper.SendMessage(webSocket, message);
+        if (webSocket.State == WebSocketState.Open)
         {
-            var buffer = new ArraySegment<byte>(messageBytes, 0, messageLength);
-            await webSocket.SendAsync(buffer, WebSocketMessageType.Text, true, CancellationToken.None);
-
-        }
-        else
-        {
-            int offset = 0;
-            int count = SendBufferSize;
-            bool endOfMessage = offset + count >= messageLength;
-            while (!endOfMessage)
+            var response = await MessageHelper.ReceiveMessage(webSocket);
+            if (response != null)
             {
-                count = await SendPartialMessage(webSocket, messageBytes, messageLength, offset, count, endOfMessage); offset += count;
-                endOfMessage = offset + count >= messageLength;
-            }
-            if (offset < messageLength)
-            {
-                count = await SendPartialMessage(webSocket, messageBytes, messageLength, offset, count, endOfMessage); offset += count;
+                var loginResponse = JsonSerializer.Deserialize<LoginResponse>(response);
+                Console.WriteLine($"Login response: PlayerId={loginResponse?.PlayerId}");
             }
         }
     }
 
-    private static async Task<int> SendPartialMessage(ClientWebSocket webSocket, byte[] messageBytes,
-                int messageLength, int offset, int count, bool endOfMessage)
+    private static async Task HandleUpdateResourcesAsync(ClientWebSocket webSocket, string message)
     {
-        count = Math.Min(count, messageLength - offset);
-        var buffer = new ArraySegment<byte>(messageBytes, offset, count);
-        await webSocket.SendAsync(buffer, WebSocketMessageType.Text, endOfMessage, CancellationToken.None);
-        return count;
+        await MessageHelper.SendMessage(webSocket, message);
+        if (webSocket.State == WebSocketState.Open)
+        {
+            var response = await MessageHelper.ReceiveMessage(webSocket);
+            if (response != null)
+            {
+                var updateResourcesResponse = JsonSerializer.Deserialize<UpdateResourcesResponse>(response, MessageHelper.Options);
+                Console.WriteLine($"UpdateResources response: Balance={response}");
+            }
+        }
+    }
+
+    private static async Task HandleSendGiftAsync(ClientWebSocket webSocket, string message)
+    {
+        await MessageHelper.SendMessage(webSocket, message);
+        if (webSocket.State == WebSocketState.Open)
+        {
+            var response = await MessageHelper.ReceiveMessage(webSocket);
+            if (response != null)
+            {
+                var giftEvent = JsonSerializer.Deserialize<GiftEvent>(response, MessageHelper.Options);
+                Console.WriteLine($"SendGiftRequest response: giftEvent={response}");
+            }
+        }
     }
 }
