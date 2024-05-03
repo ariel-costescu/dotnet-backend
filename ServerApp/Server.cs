@@ -41,10 +41,13 @@ public class Server
     private static async Task HandleWebSocketRequest(WebSocket webSocket)
     {
         var message = await ReceiveMessage(webSocket);
-        await _messageRouter.RouteMessage(message, webSocket);
+        if (message != null)
+        {
+            await _messageRouter.RouteMessage(message, webSocket);
+        }
     }
 
-    private static async Task<string> ReceiveMessage(WebSocket webSocket)
+    private static async Task<string?> ReceiveMessage(WebSocket webSocket)
     {
         var message = new StringBuilder();
 
@@ -69,6 +72,10 @@ public class Server
                 {
                     break;
                 }
+            }
+            else
+            {
+                return null;
             }
         }
 
