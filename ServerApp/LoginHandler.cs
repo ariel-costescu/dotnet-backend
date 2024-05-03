@@ -53,6 +53,18 @@ public class LoginHandler
         return playerId;
     }
 
+    public static WebSocket? GetWebSocketForUser(string playerId)
+    {
+        foreach(WebSocket webSocket in webSocketToPlayerId.Keys)
+        {
+            if (webSocketToPlayerId[webSocket] == playerId)
+            {
+                return webSocket;
+            }
+        }
+        return null;
+    }
+
     private static async Task SendLoginResponse(LoginResponse loginResponse, WebSocket webSocket)
     {
         string message = JsonSerializer.Serialize(loginResponse);

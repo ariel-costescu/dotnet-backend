@@ -33,14 +33,14 @@ public class UpdateResourcesResponse
 
 public class SendGiftRequest
 {
-    public string? FriendPlayerId { get; set; }
-    public ResourceTypeEnum? ResourceType { get; set; }
+    public required string FriendPlayerId { get; set; }
+    public ResourceTypeEnum ResourceType { get; set; }
     public long ResourceValue { get; set; }
 }
 
 public class GiftEvent
 {
-    public string? FriendPlayerId { get; set; }
-    public ResourceTypeEnum? ResourceType { get; set; }
+    public required string FriendPlayerId { get; set; }
+    public ResourceTypeEnum ResourceType { get; set; }
     public long ResourceValue { get; set; }
 }

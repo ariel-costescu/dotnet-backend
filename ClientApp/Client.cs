@@ -53,6 +53,9 @@ public class Client
                         case "SendGift":
                             await HandleSendGiftAsync(webSocket, message);
                             break;
+                        case "CheckGiftEvent":
+                            await HandleCheckGiftEventAsync(webSocket, message);
+                            break;
                         default:
                             Console.WriteLine($"Unhandled message type: {messageType}");
                             break;
@@ -101,13 +104,17 @@ public class Client
     private static async Task HandleSendGiftAsync(ClientWebSocket webSocket, string message)
     {
         await MessageHelper.SendMessage(webSocket, message);
+    }
+
+    private static async Task HandleCheckGiftEventAsync(ClientWebSocket webSocket, string message)
+    {
         if (webSocket.State == WebSocketState.Open)
         {
             var response = await MessageHelper.ReceiveMessage(webSocket);
             if (response != null)
             {
                 var giftEvent = JsonSerializer.Deserialize<GiftEvent>(response, MessageHelper.Options);
-                Console.WriteLine($"SendGiftRequest response: giftEvent={response}");
+                Console.WriteLine($"SendGift response: giftEvent={response}");
             }
         }
     }

@@ -19,15 +19,34 @@ public class SendGiftHandler
             {
                 Console.WriteLine($"SendGift: request={payload.ToString()}");
 
-                // TODO: Implement
-                var giftEvent = new GiftEvent
+                string? playerId = LoginHandler.getAuthenticatedUserForWebSocket(webSocket);
+                if (playerId == null)
                 {
-                    FriendPlayerId = sendGiftRequest.FriendPlayerId,
-                    ResourceType = sendGiftRequest.ResourceType,
-                    ResourceValue = sendGiftRequest.ResourceValue
-                };
+                    Console.WriteLine("Unauthenticated user!");
+                }
+                else
+                {
+                    string friendPlayerId = sendGiftRequest.FriendPlayerId;
+                    var resourceType = sendGiftRequest.ResourceType;
+                    var delta = sendGiftRequest.ResourceValue;
 
-                await SendGiftEvent(giftEvent, webSocket);
+                    UpdateResourcesHandler.UpdateBalancesForGift(playerId, friendPlayerId, resourceType, delta);
+
+                    WebSocket? friendWebSocket = LoginHandler.GetWebSocketForUser(friendPlayerId);
+                    if (friendWebSocket != null)
+                    {
+                        var giftEvent = new GiftEvent
+                        {
+                            FriendPlayerId = sendGiftRequest.FriendPlayerId,
+                            ResourceType = sendGiftRequest.ResourceType,
+                            ResourceValue = sendGiftRequest.ResourceValue
+                        };
+
+
+                        await SendGiftEvent(giftEvent, friendWebSocket);
+                    }
+                }
+
             }
         }
     }

@@ -30,24 +30,45 @@ public class UpdateResourcesHandler
                 }
                 else
                 {
-                    lock (syncLock)
-                    {
-                        var resourceType = updateResourcesRequest.ResourceType;
-                        var delta = updateResourcesRequest.ResourceValue;
-                        updateResourcesResponse.ResourceType = resourceType;
-                        balancesPerUser.TryGetValue(playerId, out var balances);
-                        if (balances == null)
-                        {
-                            balances = new BalancePerResourceType();
-                            balancesPerUser[playerId] = balances;
-                        }
-                        balances.UpdateBalance(resourceType, delta);
-                        updateResourcesResponse.Balance = balances.GetBalanceForResourceType(resourceType) ?? 0;
-                    }
+                    var resourceType = updateResourcesRequest.ResourceType;
+                    var delta = updateResourcesRequest.ResourceValue;
+                    var newBalance = UpdateBalanceForUser(playerId, resourceType, delta);
+                    updateResourcesResponse.ResourceType = resourceType;
+                    updateResourcesResponse.Balance = newBalance;
+
                 };
 
                 await SendUpdateResourcesResponse(updateResourcesResponse, webSocket);
             }
+        }
+    }
+
+    public static long UpdateBalanceForUser(string playerId, ResourceTypeEnum resourceType, long delta)
+    {
+        lock (syncLock)
+        {
+            return UpdateBalance(playerId, resourceType, delta);
+        }
+    }
+
+    private static long UpdateBalance(string playerId, ResourceTypeEnum resourceType, long delta)
+    {
+        balancesPerUser.TryGetValue(playerId, out var balances);
+        if (balances == null)
+        {
+            balances = new BalancePerResourceType();
+            balancesPerUser[playerId] = balances;
+        }
+        return balances.UpdateBalance(resourceType, delta);
+    }
+
+    public static void UpdateBalancesForGift(string fromPlayerId, string toPlayerId,
+        ResourceTypeEnum resourceType, long delta)
+    {
+        lock (syncLock)
+        {
+            UpdateBalance(fromPlayerId, resourceType, -delta);
+            UpdateBalance(toPlayerId, resourceType, delta);
         }
     }
 
@@ -64,15 +85,16 @@ class BalancePerResourceType
 
     public BalancePerResourceType()
     {
-        foreach(ResourceTypeEnum resourceType in Enum.GetValues<ResourceTypeEnum>())
+        foreach (ResourceTypeEnum resourceType in Enum.GetValues<ResourceTypeEnum>())
         {
             balances[resourceType] = 0;
         }
     }
 
-    public void UpdateBalance(ResourceTypeEnum resourceType, long delta)
+    public long UpdateBalance(ResourceTypeEnum resourceType, long delta)
     {
         balances[resourceType] += delta;
+        return balances[resourceType];
     }
 
     public long? GetBalanceForResourceType(ResourceTypeEnum resourceType)
