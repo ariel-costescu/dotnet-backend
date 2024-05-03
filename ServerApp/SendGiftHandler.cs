@@ -1,6 +1,6 @@
 ﻿using System.Net.WebSockets;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using Serilog;
 
 namespace BackendServer;
 
@@ -17,12 +17,12 @@ public class SendGiftHandler
 
             if (sendGiftRequest != null)
             {
-                Console.WriteLine($"SendGift: request={payload.ToString()}");
+                Log.Information($"SendGift: request={payload.ToString()}");
 
                 string? playerId = LoginHandler.getAuthenticatedUserForWebSocket(webSocket);
                 if (playerId == null)
                 {
-                    Console.WriteLine("Unauthenticated user!");
+                    Log.Error("Unauthenticated user!");
                 }
                 else
                 {

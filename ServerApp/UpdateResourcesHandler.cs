@@ -1,5 +1,6 @@
 ﻿using System.Net.WebSockets;
 using System.Text.Json;
+using Serilog;
 
 namespace BackendServer;
 
@@ -18,7 +19,7 @@ public class UpdateResourcesHandler
 
             if (updateResourcesRequest != null)
             {
-                Console.WriteLine($"UpdateResources: request={payload.ToString()}");
+                Log.Information($"UpdateResources: request={payload.ToString()}");
 
                 var updateResourcesResponse = new UpdateResourcesResponse();
 
@@ -26,7 +27,7 @@ public class UpdateResourcesHandler
                 if (playerId == null)
                 {
                     updateResourcesResponse.Error = "Unauthenticated user!";
-                    Console.WriteLine(updateResourcesResponse.Error);
+                    Log.Error(updateResourcesResponse.Error);
                 }
                 else
                 {

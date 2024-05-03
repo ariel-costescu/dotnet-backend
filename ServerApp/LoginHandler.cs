@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text.Json;
+using Serilog;
 
 namespace BackendServer;
 public class LoginHandler
@@ -16,7 +17,7 @@ public class LoginHandler
 
             if (loginRequest != null)
             {
-                Console.WriteLine($"Login: request={payload.ToString()}");
+                Log.Information($"Login: request={payload.ToString()}");
 
                 if (loginRequest.DeviceId != null)
                 {
@@ -25,7 +26,7 @@ public class LoginHandler
                     if (deviceIdToPlayerId.TryGetValue(deviceId, out var playerId))
                     {
                         loginResponse.Error = $"User {playerId} already logged in!";
-                        Console.WriteLine(loginResponse.Error);
+                        Log.Error(loginResponse.Error);
                     }
                     else
                     {

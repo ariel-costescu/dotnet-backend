@@ -3,6 +3,7 @@
 using System.Net.WebSockets;
 using System.Text.Json;
 using BackendServer;
+using Serilog;
 
 public class Client
 {
@@ -11,58 +12,76 @@ public class Client
 
     public static async Task Main(string[] args)
     {
-        string ServerAddress = args.Length > 0 ? args[0] : ServerAddressDefault;
-        int ServerPort = args.Length > 1 ? int.Parse(args[1]) : ServerPortDefault;
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Console()
+            .WriteTo.File("log.txt",
+                rollingInterval: RollingInterval.Day,
+                rollOnFileSizeLimit: true)
+            .CreateLogger();
 
-        var webSocket = new ClientWebSocket();
-        await webSocket.ConnectAsync(new Uri($"ws://{ServerAddress}:{ServerPort}"), CancellationToken.None);
-
-        Console.WriteLine("Connected to server!");
-
-        while (webSocket.State == WebSocketState.Open)
+        try
         {
-            var message = Console.ReadLine();
-            if (message == null || message.Length == 0)
-            {
-                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Normal closure", CancellationToken.None);
-            }
-            else
-            {
-                Message? jsonMessage = null;
-                try
-                {
-                    jsonMessage = JsonSerializer.Deserialize<Message>(message);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Unable to parse json message due to exception: {ex.Message}");
-                }
+            string ServerAddress = args.Length > 0 ? args[0] : ServerAddressDefault;
+            int ServerPort = args.Length > 1 ? int.Parse(args[1]) : ServerPortDefault;
 
-                if (jsonMessage != null)
-                {
-                    var messageType = jsonMessage.Type ?? "default";
+            var webSocket = new ClientWebSocket();
+            await webSocket.ConnectAsync(new Uri($"ws://{ServerAddress}:{ServerPort}"), CancellationToken.None);
 
-                    switch (messageType)
+            Log.Information("Connected to server!");
+
+            while (webSocket.State == WebSocketState.Open)
+            {
+                var message = Console.ReadLine();
+                if (message == null || message.Length == 0)
+                {
+                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Normal closure", CancellationToken.None);
+                }
+                else
+                {
+                    Message? jsonMessage = null;
+                    try
                     {
-                        case "Login":
-                            await HandleLoginAsync(webSocket, message);
-                            break;
-                        case "UpdateResources":
-                            await HandleUpdateResourcesAsync(webSocket, message);
-                            break;
-                        case "SendGift":
-                            await HandleSendGiftAsync(webSocket, message);
-                            break;
-                        case "CheckGiftEvent":
-                            await HandleCheckGiftEventAsync(webSocket, message);
-                            break;
-                        default:
-                            Console.WriteLine($"Unhandled message type: {messageType}");
-                            break;
+                        jsonMessage = JsonSerializer.Deserialize<Message>(message);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"Unable to parse json message due to exception: {ex.Message}");
                     }
 
+                    if (jsonMessage != null)
+                    {
+                        var messageType = jsonMessage.Type ?? "default";
+
+                        switch (messageType)
+                        {
+                            case "Login":
+                                await HandleLoginAsync(webSocket, message);
+                                break;
+                            case "UpdateResources":
+                                await HandleUpdateResourcesAsync(webSocket, message);
+                                break;
+                            case "SendGift":
+                                await HandleSendGiftAsync(webSocket, message);
+                                break;
+                            case "CheckGiftEvent":
+                                await HandleCheckGiftEventAsync(webSocket, message);
+                                break;
+                            default:
+                                Log.Information($"Unhandled message type: {messageType}");
+                                break;
+                        }
+
+                    }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Unhandled exception");
+        }
+        finally
+        {
+            await Log.CloseAndFlushAsync();
         }
     }
 
@@ -77,11 +96,11 @@ public class Client
                 var loginResponse = JsonSerializer.Deserialize<LoginResponse>(response);
                 if (loginResponse?.Error != null)
                 {
-                    Console.WriteLine($"Login error: {loginResponse.Error}");
+                    Log.Error($"Login error: {loginResponse.Error}");
                 }
                 else
                 {
-                    Console.WriteLine($"Login response: PlayerId={loginResponse?.PlayerId}");
+                    Log.Information($"Login response: PlayerId={loginResponse?.PlayerId}");
                 }
             }
         }
@@ -96,7 +115,7 @@ public class Client
             if (response != null)
             {
                 var updateResourcesResponse = JsonSerializer.Deserialize<UpdateResourcesResponse>(response, MessageHelper.Options);
-                Console.WriteLine($"UpdateResources response: Balance={response}");
+                Log.Information($"UpdateResources response: Balance={response}");
             }
         }
     }
@@ -114,7 +133,7 @@ public class Client
             if (response != null)
             {
                 var giftEvent = JsonSerializer.Deserialize<GiftEvent>(response, MessageHelper.Options);
-                Console.WriteLine($"SendGift response: giftEvent={response}");
+                Log.Information($"SendGift response: giftEvent={response}");
             }
         }
     }

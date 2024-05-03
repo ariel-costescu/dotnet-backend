@@ -1,9 +1,10 @@
 namespace BackendServer;
 
 using System;
-using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
+using Serilog;
+
 public class Server
 {
     private const string ServerAddressDefault = "127.0.0.1";
@@ -12,41 +13,59 @@ public class Server
 
     public static async Task Main(string[] args)
     {
-        int serverPort = args.Length > 1 ? int.Parse(args[1]) : ServerPortDefault;
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Console()
+            .WriteTo.File("log.txt",
+                rollingInterval: RollingInterval.Day,
+                rollOnFileSizeLimit: true)
+            .CreateLogger();
 
-        var httpListener = new HttpListener();
-        httpListener.Prefixes.Add($"http://{ServerAddressDefault}:{serverPort}/");
-        httpListener.Start();
-
-        Console.WriteLine($"Server listening on port {serverPort}...");
-
-        RegisterHandlers();
-
-        int maxConcurrentRequests = Environment.ProcessorCount;
-        var incoming = new HashSet<Task>();
-        for (int i = 0; i < maxConcurrentRequests; i++)
+        try
         {
-            incoming.Add(httpListener.GetContextAsync());
-        }
+            int serverPort = args.Length > 1 ? int.Parse(args[1]) : ServerPortDefault;
 
-        CancellationTokenSource source = new();
-        CancellationToken token = source.Token;
+            var httpListener = new HttpListener();
+            httpListener.Prefixes.Add($"http://{ServerAddressDefault}:{serverPort}/");
+            httpListener.Start();
 
-        while (!token.IsCancellationRequested)
-        {
-            Task t = await Task.WhenAny(incoming);
-            incoming.Remove(t);
+            Log.Information($"Server listening on port {serverPort}...");
 
-            if (t is Task<HttpListenerContext>)
+            RegisterHandlers();
+
+            int maxConcurrentRequests = Environment.ProcessorCount;
+            var incoming = new HashSet<Task>();
+            for (int i = 0; i < maxConcurrentRequests; i++)
             {
-                var context = (t as Task<HttpListenerContext>)?.Result;
-                incoming.Add(ProcessRequestAsync(context));
                 incoming.Add(httpListener.GetContextAsync());
             }
-        }
 
-        Console.WriteLine("Server stopping...");
-        httpListener.Stop();
+            CancellationTokenSource source = new();
+            CancellationToken token = source.Token;
+
+            while (!token.IsCancellationRequested)
+            {
+                Task t = await Task.WhenAny(incoming);
+                incoming.Remove(t);
+
+                if (t is Task<HttpListenerContext>)
+                {
+                    var context = (t as Task<HttpListenerContext>)?.Result;
+                    incoming.Add(ProcessRequestAsync(context));
+                    incoming.Add(httpListener.GetContextAsync());
+                }
+            }
+
+            Log.Information("Server stopping...");
+            httpListener.Stop();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Unhandled exception");
+        }
+        finally
+        {
+            await Log.CloseAndFlushAsync();
+        }
     }
 
     public static async Task ProcessRequestAsync(HttpListenerContext? context)
@@ -66,6 +85,7 @@ public class Server
             }
             else
             {
+                Log.Error("Didn't receive a WebSocket update request!");
                 context.Response.StatusCode = 400;
                 context.Response.Close();
             }

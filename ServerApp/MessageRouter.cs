@@ -2,6 +2,7 @@ namespace BackendServer;
 
 using System.Net.WebSockets;
 using System.Text.Json;
+using Serilog;
 
 public class MessageRouter : IMessageRouter
 {
@@ -26,7 +27,7 @@ public class MessageRouter : IMessageRouter
         }
         catch(Exception ex)
         {
-            Console.WriteLine($"Unable to parse json message due to exception: {ex.Message}");
+            Log.Error($"Unable to parse json message due to exception: {ex.Message}");
         }
 
         if (jsonMessage != null)
@@ -39,8 +40,8 @@ public class MessageRouter : IMessageRouter
             }
             else
             {
-                Console.WriteLine($"Unhandled message type: {messageType}");
-                Console.WriteLine($"Message was : \"{message}\"");
+                Log.Error($"Unhandled message type: {messageType}");
+                Log.Error($"Message was : \"{message}\"");
             }
         }
     }
