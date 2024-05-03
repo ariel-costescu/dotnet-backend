@@ -20,14 +20,15 @@ public enum ResourceTypeEnum{ Coins, Rolls }
 
 public class UpdateResourcesRequest
 {
-    public ResourceTypeEnum? ResourceType { get; set; }
+    public ResourceTypeEnum ResourceType { get; set; }
     public long ResourceValue { get; set; }
 }
 
 public class UpdateResourcesResponse
 {
     public ResourceTypeEnum? ResourceType { get; set; }
-    public long Balance { get; set; }
+    public long? Balance { get; set; }
+    public string? Error { get; set; }
 }
 
 public class SendGiftRequest
